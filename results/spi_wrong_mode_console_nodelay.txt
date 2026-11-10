@@ -1,0 +1,24 @@
+--- Master mode 0, peripheral mode 0 (same mode)
+master sent a5, peripheral sent 3c
+PASS    master got     = 3c (as predicted)
+PASS    peripheral got = a5 (as predicted)
+master sent 80, peripheral sent 01
+PASS    master got     = 01 (as predicted)
+PASS    peripheral got = 80 (as predicted)
+master sent 01, peripheral sent 80
+PASS    master got     = 80 (as predicted)
+PASS    peripheral got = 01 (as predicted)
+--- Master mode 0, peripheral mode 1 (wrong mode)
+master sent a5, peripheral sent 3c
+PASS    master got     = 1e (as predicted)
+PASS    peripheral got = a5 (as predicted)
+master sent 80, peripheral sent 01
+PASS    master got     = 00 (as predicted)
+PASS    peripheral got = 80 (as predicted)
+master sent 01, peripheral sent 80
+PASS    master got     = c0 (as predicted)
+PASS    peripheral got = 01 (as predicted)
+==========================================
+TEST PASSED: every byte matches the prediction
+==========================================
+$finish called at time : 17876143 ps
