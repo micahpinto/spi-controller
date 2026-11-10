@@ -1,4 +1,4 @@
-CLKS_PER_HALF_BIT = 2
+CLKS_PER_HALF_BIT = 2, CPOL = 0, CPHA = 0 (mode 0)
 --- Test 1: after reset
 PASS  SCLK = 00000000
 PASS  CS_n = 00000001

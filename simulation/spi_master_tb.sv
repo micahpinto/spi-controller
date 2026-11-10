@@ -1,11 +1,13 @@
-// Self-checking testbench for spi_master (mode 0).
+// Self-checking testbench for spi_master, any of the 4 SPI modes.
 // A simple peripheral model on the other side of the SPI wires sends its own
 // byte back, so every transfer checks both directions.
 `timescale 1ns/1ps
 module spi_master_tb;
 
-  //other SCLK speeds (2, 3, 5)
+  // Change these and run again: SCLK speed (2, 3, 5) and SPI mode (CPOL, CPHA)
   localparam int CLKS_PER_HALF_BIT = 2;
+  localparam bit CPOL = 1;
+  localparam bit CPHA = 1;
   localparam real CLK_PERIOD = 83.333;    // 12 MHz
 
   logic       r_Clk      = 0;
@@ -21,7 +23,7 @@ module spi_master_tb;
   wire        w_SPI_CS_n;
   logic       r_MISO = 0;
 
-  spi_master #(.CLKS_PER_HALF_BIT(CLKS_PER_HALF_BIT)) dut (
+  spi_master #(.CLKS_PER_HALF_BIT(CLKS_PER_HALF_BIT), .CPOL(CPOL), .CPHA(CPHA)) dut (
     .i_Clk     (r_Clk),
     .i_Rst_n   (r_Rst_n),
     .i_Tx_Byte (r_Tx_Byte),
@@ -40,33 +42,45 @@ module spi_master_tb;
   int errors = 0;
 
   // ---------------------------------------------------------------
-  // Peripheral model (mode 0)
+  // Peripheral model (same mode as the master)
   // ---------------------------------------------------------------
   logic [7:0] r_P_Tx = 0;   // byte the peripheral sends
   logic [7:0] r_P_Rx = 0;   // byte the peripheral receives
+  int         r_P_First = 0; // first edges seen in this transfer
 
   // CS_n falls: put the first bit on MISO
-  always @(negedge w_SPI_CS_n)
-    r_MISO = r_P_Tx[7];
+  always @(negedge w_SPI_CS_n) begin
+    r_MISO    = r_P_Tx[7];
+    r_P_First = 0;
+  end
 
-  // SCLK rising: read MOSI into the bottom
-  always @(posedge w_SPI_Clk)
-    if (!w_SPI_CS_n)
-      r_P_Rx = {r_P_Rx[6:0], w_SPI_MOSI};
-
-  // SCLK falling: shift, put the next bit on MISO
-  always @(negedge w_SPI_Clk)
-    if (!w_SPI_CS_n) begin
-      r_P_Tx = {r_P_Tx[6:0], 1'b0};
-      r_MISO = r_P_Tx[7];
+  // Any SCLK edge while selected. The first edge of a clock pulse moves SCLK
+  // away from its idle level (CPOL), the second edge brings it back.
+  always @(w_SPI_Clk)
+    if (w_SPI_CS_n === 1'b0) begin
+      if (w_SPI_Clk !== CPOL) begin            // first edge
+        r_P_First++;
+        if (!CPHA)
+          r_P_Rx = {r_P_Rx[6:0], w_SPI_MOSI};
+        else if (r_P_First > 1) begin
+          r_P_Tx = {r_P_Tx[6:0], 1'b0};
+          r_MISO = r_P_Tx[7];
+        end
+      end else begin                            // second edge
+        if (!CPHA) begin
+          r_P_Tx = {r_P_Tx[6:0], 1'b0};
+          r_MISO = r_P_Tx[7];
+        end else
+          r_P_Rx = {r_P_Rx[6:0], w_SPI_MOSI};
+      end
     end
 
   // ---------------------------------------------------------------
   // Counters and SCLK period measurement
   // ---------------------------------------------------------------
-  int  r_Pulses   = 0;      // SCLK rising edges in the current transfer
+  int  r_Pulses   = 0;      // SCLK pulses (first edges) in the current transfer
   int  r_CS_Falls = 0;      // number of transfers started
-  realtime r_Last_Rise = 0;
+  realtime r_Last_Pulse = 0;
   realtime r_Period    = 0;
 
   always @(negedge w_SPI_CS_n) begin
@@ -74,10 +88,10 @@ module spi_master_tb;
     r_CS_Falls++;
   end
 
-  always @(posedge w_SPI_Clk) begin
+  always @(w_SPI_Clk) if (w_SPI_Clk === !CPOL) begin
     r_Pulses = r_Pulses + 1;
-    if (r_Pulses > 1) r_Period = $realtime - r_Last_Rise;
-    r_Last_Rise = $realtime;
+    if (r_Pulses > 1) r_Period = $realtime - r_Last_Pulse;
+    r_Last_Pulse = $realtime;
   end
 
   // ---------------------------------------------------------------
@@ -115,7 +129,7 @@ module spi_master_tb;
     check("master got",  w_Rx_Byte, p_byte);
     check("periph got",  r_P_Rx,    m_byte);
     check("SCLK pulses", r_Pulses,  8);
-    check("SCLK idle",   w_SPI_Clk, 0);
+    check("SCLK idle",   w_SPI_Clk, CPOL);
     check("CS_n idle",   w_SPI_CS_n, 1);
     check("busy at done", w_Busy,   0);
     // o_Rx_Done must be high for one clock only
@@ -139,14 +153,14 @@ module spi_master_tb;
   int  expected_period;
 
   initial begin
-    $display("CLKS_PER_HALF_BIT = %0d", CLKS_PER_HALF_BIT);
+    $display("CLKS_PER_HALF_BIT = %0d, CPOL = %0d, CPHA = %0d (mode %0d)", CLKS_PER_HALF_BIT, CPOL, CPHA, 2*CPOL + CPHA);
     repeat (3) @(posedge r_Clk);
     r_Rst_n <= 1;
     repeat (2) @(posedge r_Clk);
 
     // Test 1: lines at rest after reset
     $display("--- Test 1: after reset");
-    check("SCLK", w_SPI_Clk,  0);
+    check("SCLK", w_SPI_Clk,  CPOL);
     check("CS_n", w_SPI_CS_n, 1);
     check("busy", w_Busy,     0);
 

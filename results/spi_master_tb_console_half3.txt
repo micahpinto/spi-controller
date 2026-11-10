@@ -1,16 +1,4 @@
-CLKS_PER_HALF_BIT = 3
---- Test 1: after reset
-PASS  SCLK = 00000000
-PASS  CS_n = 00000001
-PASS  busy = 00000000
---- Test 2: A5 / 3C
-INFO: [USF-XSim-96] XSim completed. Design snapshot 'spi_master_tb_behav' loaded.
-INFO: [USF-XSim-97] XSim simulation ran for 1000ns
-launch_simulation: Time (s): cpu = 00:00:06 ; elapsed = 00:00:07 . Memory (MB): peak = 4143.277 ; gain = 0.000
-restart
-INFO: [Wavedata 42-604] Simulation restarted
-run all
-CLKS_PER_HALF_BIT = 3
+CLKS_PER_HALF_BIT = 3, CPOL = 0, CPHA = 0 (mode 0)
 --- Test 1: after reset
 PASS  SCLK = 00000000
 PASS  CS_n = 00000001
