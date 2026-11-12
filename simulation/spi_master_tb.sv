@@ -6,8 +6,8 @@ module spi_master_tb;
 
   // Change these and run again: SCLK speed (2, 3, 5) and SPI mode (CPOL, CPHA)
   localparam int CLKS_PER_HALF_BIT = 2;
-  localparam bit CPOL = 1;
-  localparam bit CPHA = 1;
+  localparam bit CPOL = 0;
+  localparam bit CPHA = 0;
   localparam real CLK_PERIOD = 83.333;    // 12 MHz
 
   logic       r_Clk      = 0;
